@@ -1,8 +1,11 @@
 
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import Layout from "./Layout";
 import ChatInterface from "./ChatInterface";
 import VideoCall from "./VideoCall";
+import { Button } from "@/components/ui/button";
 
 interface HomePageProps {
   initialView?: "chat" | "call" | "welcome";
@@ -10,6 +13,7 @@ interface HomePageProps {
 
 const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
   const [activeView, setActiveView] = useState(initialView);
+  const { user, signOut } = useAuth();
   
   return (
     <Layout>
@@ -18,26 +22,48 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
           <div className="text-center max-w-2xl p-8 rounded-xl cyber-panel animate-fade-in">
             <h1 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>
             <p className="text-white/80 mb-8">Welcome to the next generation of communication</p>
-            <div className="mb-12 relative">
-              <div className="absolute -inset-[1px] bg-neon-glow rounded-lg animate-pulse opacity-30 blur-md"></div>
-              <div className="relative glass-morphism p-6 rounded-lg">
-                <p className="text-lg text-white/90 mb-4">Select a conversation from the sidebar to start chatting</p>
-                <div className="flex justify-center gap-4 mt-6">
-                  <button 
+            
+            {user ? (
+              <div className="mb-6">
+                <p className="text-neon-green mb-4">Hello, {user.user_metadata.username || 'User'}!</p>
+                <div className="flex justify-center gap-3 mb-6">
+                  <Button 
                     onClick={() => setActiveView("chat")}
-                    className="px-5 py-2.5 rounded-lg bg-neon-blue/20 hover:bg-neon-blue/30 text-neon-blue border border-neon-blue/40 transition-colors"
+                    className="px-5 py-2.5 rounded-lg bg-neon-blue/20 hover:bg-neon-blue/30 text-neon-blue border border-neon-blue/40"
                   >
                     Start Chatting
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
                     onClick={() => setActiveView("call")}
-                    className="px-5 py-2.5 rounded-lg bg-neon-green/20 hover:bg-neon-green/30 text-neon-green border border-neon-green/40 transition-colors"
+                    className="px-5 py-2.5 rounded-lg bg-neon-green/20 hover:bg-neon-green/30 text-neon-green border border-neon-green/40"
                   >
                     Join Video Call
-                  </button>
+                  </Button>
+                  <Button
+                    onClick={() => signOut()}
+                    className="px-5 py-2.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40"
+                  >
+                    Sign Out
+                  </Button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="mb-12 relative">
+                <div className="absolute -inset-[1px] bg-neon-glow rounded-lg animate-pulse opacity-30 blur-md"></div>
+                <div className="relative glass-morphism p-6 rounded-lg">
+                  <p className="text-lg text-white/90 mb-4">Sign in to start your futuristic communication experience</p>
+                  <div className="flex justify-center gap-4 mt-6">
+                    <Link to="/auth">
+                      <Button 
+                        className="px-5 py-2.5 rounded-lg bg-neon-purple/20 hover:bg-neon-purple/30 text-neon-purple border border-neon-purple/40 transition-colors"
+                      >
+                        Login / Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-lg cyber-panel hover:border-neon-blue/40 transition-all hover:-translate-y-1">
