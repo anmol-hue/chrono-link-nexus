@@ -90,41 +90,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserSettings = async (userId: string) => {
     try {
-      // First, check if the settings column exists
-      const { data: checkData, error: checkError } = await supabase
+      // Try to get settings directly from the user's profile
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id, username')
+        .select('settings')
         .eq('id', userId)
         .single();
       
-      if (checkError) throw checkError;
+      if (error) throw error;
       
-      // Try to get settings if they exist
-      try {
-        const { data: settingsData } = await supabase.rpc('get_user_settings', {
-          user_id: userId
-        });
-        
-        if (settingsData) {
-          const settings = { ...defaultUserSettings, ...settingsData };
-          setUserSettings(settings);
-          applyTheme(settings.themeColor);
-        }
-      } catch (error) {
-        // If the RPC doesn't exist or settings not found, use defaults
+      if (data && data.settings) {
+        // If settings exist, use them
+        const loadedSettings = data.settings as UserSettings;
+        setUserSettings({ ...defaultUserSettings, ...loadedSettings });
+        applyTheme(loadedSettings.themeColor || defaultUserSettings.themeColor);
+      } else {
+        // If settings don't exist, use defaults and update profile
         setUserSettings(defaultUserSettings);
         applyTheme(defaultUserSettings.themeColor);
         
-        // Update the profile with default settings
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ 
-            settings: defaultUserSettings 
-          })
-          .eq('id', userId);
-        
-        if (updateError) {
-          console.error('Error updating user settings:', updateError);
+        // Try to update the profile with default settings
+        try {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ 
+              settings: defaultUserSettings 
+            })
+            .eq('id', userId);
+            
+          if (updateError) {
+            console.error('Error updating user settings:', updateError);
+          }
+        } catch (updateError) {
+          console.error('Error updating profile with default settings:', updateError);
         }
       }
     } catch (error) {
@@ -152,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         const { data: contactProfiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, username, avatar_url')
+          .select('id, username, avatar_url, status')
           .in('id', contactUserIds);
           
         if (profilesError) throw profilesError;
@@ -163,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: profile.id,
             username: profile.username || 'Unknown User',
             avatar_url: profile.avatar_url,
-            status: 'offline' as 'online' | 'away' | 'offline',
+            status: (profile.status as 'online' | 'away' | 'offline') || 'offline',
             contact_user_id: profile.id
           };
         });
@@ -202,7 +200,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             {
               id: data.user.id,
               username,
-              settings: defaultUserSettings
+              settings: defaultUserSettings,
+              status: 'online'
             },
           ]);
 
@@ -349,8 +348,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', user.id);
         
       if (error) {
-        // If update fails because settings column doesn't exist
-        console.error('Settings update failed, settings column might not exist');
+        console.error('Settings update failed:', error);
         
         // Just apply the theme change in the UI but don't persist
         if (settings.themeColor) {
