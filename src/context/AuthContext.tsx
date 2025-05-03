@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '../integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
+import { Database } from '../integrations/supabase/types';
+
+type Json = Database["public"]["Tables"]["profiles"]["Row"]["settings"];
 
 interface Contact {
   id: string;
@@ -117,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ 
-              settings: defaultUserSettings as unknown as Json
+              settings: defaultUserSettings as unknown as Json 
             })
             .eq('id', userId);
             
@@ -255,30 +258,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Check if input is an email
       if (userIdOrEmail.includes('@')) {
-        // Look up the user ID from email
-        const { data: userData, error: userError } = await supabase
-          .from('auth_users')
-          .select('id')
-          .eq('email', userIdOrEmail)
-          .single();
-          
-        if (userError || !userData) {
-          // Try to find user in profiles that might have an email field
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', userIdOrEmail)
-            .single();
+        // We can't directly query auth.users through the Supabase client
+        // So we'll just try to find the user in profiles table
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .ilike('username', `%${userIdOrEmail}%`)
+          .maybeSingle();
             
-          if (profileError || !profileData) {
-            toast.error('User not found with that email');
-            return;
-          }
-          
-          contactUserId = profileData.id;
-        } else {
-          contactUserId = userData.id;
+        if (profileError || !profileData) {
+          toast.error('User not found with that email or username');
+          return;
         }
+        
+        contactUserId = profileData.id;
       }
       
       // Check if trying to add self
