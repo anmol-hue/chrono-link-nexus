@@ -43,6 +43,24 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 142 71% 45%;
+    
+    --theme-color: #00FFFF;
+  }
+  
+  [data-theme="blue"] {
+    --theme-color: #00FFFF;
+  }
+  
+  [data-theme="purple"] {
+    --theme-color: #9B30FF;
+  }
+  
+  [data-theme="green"] {
+    --theme-color: #39FF14;
+  }
+  
+  [data-theme="pink"] {
+    --theme-color: #FF10F0;
   }
 }
 
@@ -111,5 +129,33 @@
   
   .clip-message-right {
     clip-path: polygon(0 0, 100% 0, 100% 85%, 92% 85%, 92% 100%, 80% 85%, 0 85%);
+  }
+  
+  /* Define animations */
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .animate-bounce {
+    animation: bounce 1s ease;
+  }
+  
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+  
+  @keyframes slideIn {
+    from { transform: translateX(30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }

@@ -1,7 +1,10 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { MessageCircle, Phone, Video, Image, CircleUser, BellRing, LogOut, UserPlus, Loader2 } from "lucide-react";
+import { 
+  MessageCircle, Phone, Video, Image, CircleUser, BellRing, 
+  LogOut, UserPlus, Loader2, Search, X, Settings, Trash2, ArrowLeft 
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import Avatar from "./Avatar";
 import { cn } from "@/lib/utils";
@@ -12,6 +15,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import UserSettingsModal from "./UserSettingsModal";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 
 const addContactSchema = z.object({
   userIdOrEmail: z.string().min(1, "Required")
@@ -20,7 +26,11 @@ const addContactSchema = z.object({
 const Sidebar = () => {
   const [activeTab, setActiveTab] = useState<string>("chats");
   const [isAddingContact, setIsAddingContact] = useState(false);
-  const { user, signOut, contacts, loadingContacts, addContact } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [contactActionId, setContactActionId] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { user, signOut, contacts, loadingContacts, addContact, removeContact, userSettings } = useAuth();
   
   const form = useForm({
     resolver: zodResolver(addContactSchema),
@@ -38,18 +48,79 @@ const Sidebar = () => {
       console.error("Failed to add contact:", error);
     }
   };
+  
+  const handleRemoveContact = async (contactId: string) => {
+    try {
+      await removeContact(contactId);
+      setContactActionId(null);
+      toast.success("Contact removed successfully");
+    } catch (error) {
+      console.error("Failed to remove contact:", error);
+      toast.error("Failed to remove contact");
+    }
+  };
+  
+  const filteredContacts = contacts.filter(contact => 
+    contact.username?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // Get theme color based on user settings
+  const getSidebarThemeClass = () => {
+    const themeColorMap = {
+      blue: "border-neon-blue",
+      purple: "border-neon-purple",
+      green: "border-neon-green",
+      pink: "border-neon-pink",
+    };
+    
+    return themeColorMap[userSettings?.themeColor as keyof typeof themeColorMap] || themeColorMap.blue;
+  };
+  
+  const getActiveTabClass = (tab: string) => {
+    const baseClass = "flex-1 p-2 rounded-lg text-center text-sm font-medium transition-all";
+    
+    if (activeTab !== tab) {
+      return cn(baseClass, "text-white/60 hover:text-white hover:bg-white/5");
+    }
+    
+    const themeColorMap = {
+      blue: "bg-neon-blue/20 text-white neon-border",
+      purple: "bg-neon-purple/20 text-white neon-border",
+      green: "bg-neon-green/20 text-white neon-border",
+      pink: "bg-neon-pink/20 text-white neon-border",
+    };
+    
+    const activeClass = themeColorMap[userSettings?.themeColor as keyof typeof themeColorMap] || themeColorMap.blue;
+    return cn(baseClass, activeClass);
+  };
 
   return (
-    <div className="w-80 flex flex-col h-full border-r border-white/10 bg-cyber-dark">
+    <div className={cn(
+      "flex flex-col h-full border-r border-white/10 bg-cyber-dark transition-all duration-300",
+      getSidebarThemeClass(),
+      isCollapsed ? "w-20" : "w-80"
+    )}>
       <div className="p-4 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-neon-glow animate-pulse-soft"></div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>
+          {!isCollapsed && <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>}
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 rounded-full hover:bg-white/5 transition-colors">
-            <BellRing className="w-5 h-5 text-white/80" />
+          <button 
+            className="p-2 rounded-full hover:bg-white/5 transition-colors"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          >
+            <ArrowLeft className={cn(
+              "w-5 h-5 text-white/80 transition-transform",
+              isCollapsed && "rotate-180"
+            )} />
           </button>
+          
+          {!isCollapsed && (
+            <button className="p-2 rounded-full hover:bg-white/5 transition-colors">
+              <BellRing className="w-5 h-5 text-white/80" />
+            </button>
+          )}
           
           {user ? (
             <div className="relative group">
@@ -65,6 +136,16 @@ const Sidebar = () => {
                   <div className="text-xs text-white/60 truncate">{user.email}</div>
                 </div>
                 <div className="border-t border-white/10 mt-1 pt-1">
+                  <Button 
+                    onClick={() => setSettingsOpen(true)} 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full flex items-center gap-2 justify-start text-white/70 hover:text-white mb-1"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Settings</span>
+                  </Button>
+                  
                   <Button 
                     onClick={() => signOut()} 
                     variant="ghost" 
@@ -87,114 +168,111 @@ const Sidebar = () => {
         </div>
       </div>
       
-      <div className="flex items-center p-2 bg-cyber-light/30">
-        <button 
-          onClick={() => setActiveTab("chats")}
-          className={cn(
-            "flex-1 p-2 rounded-lg text-center text-sm font-medium transition-all",
-            activeTab === "chats" 
-              ? "bg-neon-purple/20 text-white neon-border" 
-              : "text-white/60 hover:text-white hover:bg-white/5"
-          )}
-        >
-          Chats
-        </button>
-        <button 
-          onClick={() => setActiveTab("calls")}
-          className={cn(
-            "flex-1 p-2 rounded-lg text-center text-sm font-medium transition-all",
-            activeTab === "calls" 
-              ? "bg-neon-purple/20 text-white neon-border" 
-              : "text-white/60 hover:text-white hover:bg-white/5"
-          )}
-        >
-          Calls
-        </button>
-        <button 
-          onClick={() => setActiveTab("media")}
-          className={cn(
-            "flex-1 p-2 rounded-lg text-center text-sm font-medium transition-all",
-            activeTab === "media" 
-              ? "bg-neon-purple/20 text-white neon-border" 
-              : "text-white/60 hover:text-white hover:bg-white/5"
-          )}
-        >
-          Media
-        </button>
-      </div>
-      
-      <div className="p-3">
-        <div className="relative flex items-center">
-          <input 
-            type="text" 
-            placeholder="Search contacts..."
-            className="w-full p-2 pl-9 rounded-lg bg-white/5 border border-white/10 text-white/80 focus:outline-none focus:ring-1 focus:ring-neon-blue/30"
-          />
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <svg className="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          {user && (
-            <Dialog open={isAddingContact} onOpenChange={setIsAddingContact}>
-              <DialogTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="ml-2 text-white/60 hover:text-neon-blue hover:bg-white/5"
-                >
-                  <UserPlus className="h-5 w-5" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add Contact</DialogTitle>
-                  <DialogDescription>
-                    Enter the email or user ID of the person you want to add.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onAddContact)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="userIdOrEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email or User ID</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="example@email.com"
-                              {...field}
-                              className="bg-cyber-dark/50 border-white/20 focus:border-neon-blue"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => setIsAddingContact(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={form.formState.isSubmitting}
-                      >
-                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Add Contact
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
+      {!isCollapsed && (
+        <div className="flex items-center p-2 bg-cyber-light/30">
+          <button 
+            onClick={() => setActiveTab("chats")}
+            className={getActiveTabClass("chats")}
+          >
+            Chats
+          </button>
+          <button 
+            onClick={() => setActiveTab("calls")}
+            className={getActiveTabClass("calls")}
+          >
+            Calls
+          </button>
+          <button 
+            onClick={() => setActiveTab("media")}
+            className={getActiveTabClass("media")}
+          >
+            Media
+          </button>
         </div>
-      </div>
+      )}
+      
+      {!isCollapsed && (
+        <div className="p-3">
+          <div className="relative flex items-center">
+            <input 
+              type="text" 
+              placeholder="Search contacts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full p-2 pl-9 rounded-lg bg-white/5 border border-white/10 text-white/80 focus:outline-none focus:ring-1 focus:ring-neon-blue/30"
+            />
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+              <Search className="w-4 h-4 text-white/40" />
+            </div>
+            {searchQuery && (
+              <button 
+                className="absolute right-12 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            {user && (
+              <Dialog open={isAddingContact} onOpenChange={setIsAddingContact}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="ml-2 text-white/60 hover:text-neon-blue hover:bg-white/5"
+                  >
+                    <UserPlus className="h-5 w-5" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md bg-cyber-dark border-neon-blue/30">
+                  <DialogHeader>
+                    <DialogTitle>Add Contact</DialogTitle>
+                    <DialogDescription>
+                      Enter the email or user ID of the person you want to add.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onAddContact)} className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="userIdOrEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email or User ID</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="example@email.com"
+                                {...field}
+                                className="bg-cyber-dark/50 border-white/20 focus:border-neon-blue"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <DialogFooter>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => setIsAddingContact(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          disabled={form.formState.isSubmitting}
+                        >
+                          {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Add Contact
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </div>
+      )}
       
       {user ? (
         <div className="flex-1 overflow-y-auto scrollbar-none">
@@ -202,46 +280,102 @@ const Sidebar = () => {
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-8 w-8 text-neon-blue animate-spin" />
             </div>
-          ) : contacts.length > 0 ? (
-            contacts.map(contact => (
-              <div 
-                key={contact.id} 
-                className="px-3 py-2 hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3"
+          ) : filteredContacts.length > 0 ? (
+            filteredContacts.map(contact => (
+              <Collapsible
+                key={contact.id}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setContactActionId(contact.id);
+                  } else {
+                    setContactActionId(null);
+                  }
+                }}
+                open={contactActionId === contact.id}
               >
-                <div className="relative">
-                  <Avatar 
-                    src={contact.avatar_url || `https://i.pravatar.cc/150?u=${contact.contact_user_id}`} 
-                    fallback={contact.username?.substring(0, 2)?.toUpperCase() || "U"} 
-                    online={contact.status === "online"} 
-                    away={contact.status === "away"} 
-                    className="w-12 h-12"
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-white">{contact.username}</p>
-                    <span className="text-xs text-white/40">
-                      {Math.floor(Math.random() * 12) + 1}:{Math.floor(Math.random() * 60).toString().padStart(2, '0')}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-white/60 truncate w-40">
-                      {["Hey there!", "What's up?", "How are you?", "Got a minute?", "Check this out"][Math.floor(Math.random() * 5)]}
-                    </p>
-                    {Math.random() > 0.7 && (
-                      <div className="w-5 h-5 rounded-full bg-neon-blue flex items-center justify-center">
-                        <span className="text-xs text-cyber-dark font-medium">{Math.floor(Math.random() * 5) + 1}</span>
-                      </div>
+                <div className={cn(
+                  "hover:bg-white/5 cursor-pointer transition-colors flex",
+                  isCollapsed ? "px-1 py-2 justify-center" : "px-3 py-2"
+                )}>
+                  <div className={cn(
+                    "flex items-center gap-3",
+                    isCollapsed ? "flex-col" : "w-full"
+                  )}>
+                    <div className="relative">
+                      <Avatar 
+                        src={contact.avatar_url || `https://i.pravatar.cc/150?u=${contact.contact_user_id}`} 
+                        fallback={contact.username?.substring(0, 2)?.toUpperCase() || "U"} 
+                        online={contact.status === "online"} 
+                        away={contact.status === "away"} 
+                        className="w-12 h-12"
+                      />
+                    </div>
+                    {!isCollapsed && (
+                      <>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-white">{contact.username}</p>
+                            <span className="text-xs text-white/40">
+                              {Math.floor(Math.random() * 12) + 1}:{Math.floor(Math.random() * 60).toString().padStart(2, '0')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-white/60 truncate w-40">
+                              {["Hey there!", "What's up?", "How are you?", "Got a minute?", "Check this out"][Math.floor(Math.random() * 5)]}
+                            </p>
+                            {Math.random() > 0.7 && (
+                              <div className="w-5 h-5 rounded-full bg-neon-blue flex items-center justify-center">
+                                <span className="text-xs text-cyber-dark font-medium">{Math.floor(Math.random() * 5) + 1}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40">
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </CollapsibleTrigger>
+                      </>
                     )}
                   </div>
                 </div>
-              </div>
+                
+                {!isCollapsed && (
+                  <CollapsibleContent>
+                    <div className="px-3 py-2 flex gap-2 bg-white/5">
+                      <Button 
+                        size="sm" 
+                        className="flex-1 bg-neon-blue/20 hover:bg-neon-blue/30 text-neon-blue border border-neon-blue/40"
+                        onClick={() => toast.success("Chat started with " + contact.username)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                        Chat
+                      </Button>
+                      <Button 
+                        size="sm"
+                        className="flex-1 bg-neon-green/20 hover:bg-neon-green/30 text-neon-green border border-neon-green/40"
+                        onClick={() => toast.success("Calling " + contact.username)}
+                      >
+                        <Phone className="h-4 w-4 mr-1" />
+                        Call
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleRemoveContact(contact.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
             ))
           ) : (
             <div className="flex flex-col items-center justify-center h-32 p-4 text-center">
               <UserPlus className="h-8 w-8 text-white/40 mb-2" />
-              <p className="text-white/60">No contacts yet</p>
-              <p className="text-xs text-white/40 mt-1">Click the + icon to add contacts</p>
+              <p className="text-white/60">{searchQuery ? 'No contacts match your search' : 'No contacts yet'}</p>
+              {!searchQuery && <p className="text-xs text-white/40 mt-1">Click the + icon to add contacts</p>}
             </div>
           )}
         </div>
@@ -249,17 +383,20 @@ const Sidebar = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center p-4">
             <CircleUser className="w-12 h-12 mx-auto mb-4 text-white/30" />
-            <p className="text-white/50 mb-4">Sign in to see your contacts</p>
+            {!isCollapsed && <p className="text-white/50 mb-4">Sign in to see your contacts</p>}
             <Link to="/auth">
               <Button variant="outline" className="border-neon-purple text-neon-purple hover:bg-neon-purple/10">
-                Sign In
+                {isCollapsed ? <CircleUser className="h-5 w-5" /> : "Sign In"}
               </Button>
             </Link>
           </div>
         </div>
       )}
       
-      <div className="p-3 border-t border-white/10 flex justify-around">
+      <div className={cn(
+        "border-t border-white/10 flex",
+        isCollapsed ? "justify-center p-2" : "justify-around p-3"
+      )}>
         <button className="p-3 rounded-lg hover:bg-white/5 transition-colors text-white/80 hover:text-neon-blue">
           <MessageCircle className="w-6 h-6" />
         </button>
@@ -273,6 +410,8 @@ const Sidebar = () => {
           <CircleUser className="w-6 h-6" />
         </button>
       </div>
+      
+      <UserSettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 };

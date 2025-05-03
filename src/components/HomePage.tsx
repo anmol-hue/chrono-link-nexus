@@ -6,6 +6,9 @@ import Layout from "./Layout";
 import ChatInterface from "./ChatInterface";
 import VideoCall from "./VideoCall";
 import { Button } from "@/components/ui/button";
+import UserSettingsModal from "./UserSettingsModal";
+import { cn } from "@/lib/utils";
+import { MessageCircle, Video, Settings } from "lucide-react";
 
 interface HomePageProps {
   initialView?: "chat" | "call" | "welcome";
@@ -13,13 +16,36 @@ interface HomePageProps {
 
 const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
   const [activeView, setActiveView] = useState(initialView);
-  const { user, signOut } = useAuth();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { user, signOut, userSettings } = useAuth();
+  
+  const getButtonClass = (type: string) => {
+    const themeColorMap = {
+      blue: "text-neon-blue border-neon-blue/40 bg-neon-blue/20 hover:bg-neon-blue/30",
+      purple: "text-neon-purple border-neon-purple/40 bg-neon-purple/20 hover:bg-neon-purple/30",
+      green: "text-neon-green border-neon-green/40 bg-neon-green/20 hover:bg-neon-green/30",
+      pink: "text-neon-pink border-neon-pink/40 bg-neon-pink/20 hover:bg-neon-pink/30",
+    };
+    
+    return themeColorMap[userSettings?.themeColor as keyof typeof themeColorMap] || themeColorMap.blue;
+  };
+  
+  // Animation classes based on user settings
+  const getAnimationClass = () => {
+    switch (userSettings?.messageEffect) {
+      case 'fade': return 'animate-fade-in';
+      case 'slide': return 'animate-slide-in';
+      case 'bounce': return 'animate-bounce';
+      case 'none':
+      default: return '';
+    }
+  };
   
   return (
     <Layout>
       {activeView === "welcome" && (
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center max-w-2xl p-8 rounded-xl cyber-panel animate-fade-in">
+        <div className={cn("h-full flex items-center justify-center", getAnimationClass())}>
+          <div className="text-center max-w-2xl p-8 rounded-xl cyber-panel">
             <h1 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>
             <p className="text-white/80 mb-8">Welcome to the next generation of communication</p>
             
@@ -29,15 +55,24 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
                 <div className="flex justify-center gap-3 mb-6">
                   <Button 
                     onClick={() => setActiveView("chat")}
-                    className="px-5 py-2.5 rounded-lg bg-neon-blue/20 hover:bg-neon-blue/30 text-neon-blue border border-neon-blue/40"
+                    className={cn("px-5 py-2.5 rounded-lg border", getButtonClass("chat"))}
                   >
+                    <MessageCircle className="mr-2 h-4 w-4" />
                     Start Chatting
                   </Button>
                   <Button 
                     onClick={() => setActiveView("call")}
-                    className="px-5 py-2.5 rounded-lg bg-neon-green/20 hover:bg-neon-green/30 text-neon-green border border-neon-green/40"
+                    className={cn("px-5 py-2.5 rounded-lg border", getButtonClass("call"))}
                   >
+                    <Video className="mr-2 h-4 w-4" />
                     Join Video Call
+                  </Button>
+                  <Button
+                    onClick={() => setSettingsOpen(true)}
+                    className={cn("px-5 py-2.5 rounded-lg border", getButtonClass("settings"))}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                   </Button>
                   <Button
                     onClick={() => signOut()}
@@ -65,7 +100,7 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
               </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={cn("grid grid-cols-1 md:grid-cols-3 gap-4", userSettings?.compactMode ? "text-xs" : "")}>
               <div className="p-4 rounded-lg cyber-panel hover:border-neon-blue/40 transition-all hover:-translate-y-1">
                 <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-neon-blue/20 flex items-center justify-center">
                   <svg className="w-6 h-6 text-neon-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -105,6 +140,8 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
       
       {activeView === "chat" && <ChatInterface />}
       {activeView === "call" && <VideoCall />}
+      
+      <UserSettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Layout>
   );
 };

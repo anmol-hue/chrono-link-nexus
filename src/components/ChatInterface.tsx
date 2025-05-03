@@ -1,8 +1,13 @@
 
-import React, { useState } from "react";
-import { Send, Image, Mic, Phone, Video, MessageCircle, Share2 } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Send, Image, Mic, Phone, Video, MessageCircle, Share2, Smile, Paperclip, X, Settings } from "lucide-react";
 import Avatar from "./Avatar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import UserSettingsModal from "./UserSettingsModal";
+import { toast } from "sonner";
 
 interface Message {
   id: number;
@@ -26,6 +31,20 @@ const ChatInterface: React.FC = () => {
   ]);
   
   const [newMessage, setNewMessage] = useState("");
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [isAttachmentPickerOpen, setIsAttachmentPickerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeContact, setActiveContact] = useState({ name: "Alex Mercer", avatar: "https://i.pravatar.cc/150?img=32" });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { userSettings } = useAuth();
+  
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
   
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
@@ -41,6 +60,12 @@ const ChatInterface: React.FC = () => {
     setMessages([...messages, newMsg]);
     setNewMessage("");
     
+    // Play notification sound if enabled
+    if (userSettings.notificationSound) {
+      // Sound would play here if we had actual sound files
+      console.log("Message sent notification sound would play");
+    }
+    
     // Simulate reply
     setTimeout(() => {
       const reply: Message = {
@@ -51,21 +76,107 @@ const ChatInterface: React.FC = () => {
         read: false,
       };
       setMessages(prev => [...prev, reply]);
+      
+      // Play notification sound if enabled
+      if (userSettings.notificationSound) {
+        // Sound would play here if we had actual sound files
+        console.log("Message received notification sound would play");
+      }
+      
+      // Show toast notification if enabled
+      if (userSettings.messagePreview) {
+        toast(
+          <div className="flex items-center gap-3">
+            <Avatar src={activeContact.avatar} fallback="AM" className="w-10 h-10" />
+            <div>
+              <p className="font-medium">{activeContact.name}</p>
+              <p className="text-sm opacity-80">{reply.text}</p>
+            </div>
+          </div>
+        );
+      } else {
+        toast(
+          <div className="flex items-center gap-3">
+            <Avatar src={activeContact.avatar} fallback="AM" className="w-10 h-10" />
+            <div>
+              <p className="font-medium">{activeContact.name}</p>
+              <p className="text-sm opacity-80">New message</p>
+            </div>
+          </div>
+        );
+      }
     }, 2000);
   };
+  
+  const handleAttachmentClick = () => {
+    setIsAttachmentPickerOpen(!isAttachmentPickerOpen);
+    setIsEmojiPickerOpen(false);
+  };
+  
+  const handleEmojiClick = () => {
+    setIsEmojiPickerOpen(!isEmojiPickerOpen);
+    setIsAttachmentPickerOpen(false);
+  };
+  
+  const addEmoji = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setIsEmojiPickerOpen(false);
+  };
+  
+  // Get the appropriate animation class based on user settings
+  const getMessageAnimationClass = (sender: string) => {
+    if (userSettings.messageEffect === 'none') return '';
+    
+    const baseClass = userSettings.messageEffect === 'fade' 
+      ? 'animate-fade-in' 
+      : userSettings.messageEffect === 'slide' 
+        ? sender === 'me' ? 'animate-slide-in' : 'animate-slide-in'
+        : 'animate-bounce';
+        
+    return baseClass;
+  };
+  
+  // Get theme color based on user settings
+  const getThemeButtonClass = () => {
+    const themeColorMap = {
+      blue: "text-neon-blue hover:bg-neon-blue/20",
+      purple: "text-neon-purple hover:bg-neon-purple/20",
+      green: "text-neon-green hover:bg-neon-green/20",
+      pink: "text-neon-pink hover:bg-neon-pink/20",
+    };
+    
+    return themeColorMap[userSettings?.themeColor as keyof typeof themeColorMap] || themeColorMap.blue;
+  };
+  
+  // Get theme color for message bubbles
+  const getMessageBubbleClass = (isMine: boolean) => {
+    if (!isMine) return "bg-cyber-light/80 border border-white/5";
+    
+    const themeColorMap = {
+      blue: "bg-gradient-to-br from-neon-blue/40 to-neon-blue/20 border border-white/10",
+      purple: "bg-gradient-to-br from-neon-purple/40 to-neon-purple/20 border border-white/10",
+      green: "bg-gradient-to-br from-neon-green/40 to-neon-green/20 border border-white/10",
+      pink: "bg-gradient-to-br from-neon-pink/40 to-neon-pink/20 border border-white/10",
+    };
+    
+    return themeColorMap[userSettings?.themeColor as keyof typeof themeColorMap] || themeColorMap.blue;
+  };
+  
+  const mockEmojis = ["😀", "😂", "😍", "🤔", "👍", "❤️", "🎉", "🔥", "😊", "👋"];
+  const mockAttachments = ["Photo", "Video", "File", "Location", "Contact"];
   
   return (
     <div className="h-full flex flex-col">
       <div className="p-3 border-b border-white/10 flex items-center justify-between bg-cyber-light/30 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <Avatar 
-            src="https://i.pravatar.cc/150?img=32" 
+            src={activeContact.avatar} 
             fallback="AM" 
             className="w-10 h-10" 
             online={true}
           />
           <div>
-            <h2 className="font-medium">Alex Mercer</h2>
+            <h2 className="font-medium">{activeContact.name}</h2>
             <p className="text-xs text-white/60">Online • Last seen just now</p>
           </div>
         </div>
@@ -76,6 +187,9 @@ const ChatInterface: React.FC = () => {
           </button>
           <button className="p-2 rounded-full hover:bg-white/10 transition-colors">
             <Video className="w-5 h-5 text-white/80" />
+          </button>
+          <button className="p-2 rounded-full hover:bg-white/10 transition-colors" onClick={() => setSettingsOpen(true)}>
+            <Settings className="w-5 h-5 text-white/80" />
           </button>
           <button className="p-2 rounded-full hover:bg-white/10 transition-colors">
             <Share2 className="w-5 h-5 text-white/80" />
@@ -88,14 +202,15 @@ const ChatInterface: React.FC = () => {
           <div 
             key={message.id} 
             className={cn(
-              "max-w-[80%] animate-fade-in",
+              "max-w-[80%]",
+              getMessageAnimationClass(message.sender),
               message.sender === "me" ? "ml-auto" : "mr-auto"
             )}
           >
             <div className="flex items-end gap-2">
               {message.sender === "other" && (
                 <Avatar 
-                  src="https://i.pravatar.cc/150?img=32" 
+                  src={activeContact.avatar}
                   fallback="AM" 
                   className="w-8 h-8 mb-1" 
                 />
@@ -104,9 +219,7 @@ const ChatInterface: React.FC = () => {
               <div
                 className={cn(
                   "rounded-xl p-3 relative",
-                  message.sender === "me" 
-                    ? "bg-gradient-to-br from-neon-purple/40 to-neon-blue/30 border border-white/10" 
-                    : "bg-cyber-light/80 border border-white/5"
+                  getMessageBubbleClass(message.sender === "me")
                 )}
               >
                 {message.media && (
@@ -136,16 +249,67 @@ const ChatInterface: React.FC = () => {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
       
       <div className="p-3 border-t border-white/10 bg-cyber-light/30 backdrop-blur-lg">
         <div className="flex items-center gap-2">
-          <button className="p-2 rounded-full hover:bg-white/10 transition-colors text-white/80">
-            <Image className="w-5 h-5" />
-          </button>
-          <button className="p-2 rounded-full hover:bg-white/10 transition-colors text-white/80">
-            <Mic className="w-5 h-5" />
-          </button>
+          <Popover open={isAttachmentPickerOpen} onOpenChange={setIsAttachmentPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("rounded-full", getThemeButtonClass())}
+                onClick={handleAttachmentClick}
+              >
+                <Paperclip className="w-5 h-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2 bg-cyber-dark border border-white/10">
+              <div className="grid grid-cols-1 gap-1">
+                {mockAttachments.map((option) => (
+                  <Button
+                    key={option}
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setIsAttachmentPickerOpen(false);
+                      toast.info(`${option} upload would open here`);
+                    }}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          
+          <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("rounded-full", getThemeButtonClass())}
+                onClick={handleEmojiClick}
+              >
+                <Smile className="w-5 h-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2 bg-cyber-dark border border-white/10">
+              <div className="grid grid-cols-5 gap-2">
+                {mockEmojis.map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="text-xl p-2 hover:bg-white/10 rounded-md"
+                    onClick={() => addEmoji(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          
           <div className="flex-1 relative">
             <input
               type="text"
@@ -158,7 +322,13 @@ const ChatInterface: React.FC = () => {
             <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
               <button 
                 onClick={handleSendMessage}
-                className="p-2 rounded-full bg-neon-blue/20 hover:bg-neon-blue/30 transition-colors text-neon-blue"
+                className={cn(
+                  "p-2 rounded-full transition-colors",
+                  userSettings.themeColor === "blue" ? "bg-neon-blue/20 hover:bg-neon-blue/30 text-neon-blue" :
+                  userSettings.themeColor === "purple" ? "bg-neon-purple/20 hover:bg-neon-purple/30 text-neon-purple" :
+                  userSettings.themeColor === "green" ? "bg-neon-green/20 hover:bg-neon-green/30 text-neon-green" :
+                  "bg-neon-pink/20 hover:bg-neon-pink/30 text-neon-pink"
+                )}
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -166,6 +336,8 @@ const ChatInterface: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      <UserSettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 };
