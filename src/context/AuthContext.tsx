@@ -90,21 +90,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserSettings = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // First, check if the settings column exists
+      const { data: checkData, error: checkError } = await supabase
         .from('profiles')
-        .select('settings')
+        .select('id, username')
         .eq('id', userId)
         .single();
       
-      if (error) throw error;
+      if (checkError) throw checkError;
       
-      if (data?.settings) {
-        const settings = { ...defaultUserSettings, ...data.settings };
-        setUserSettings(settings);
-        applyTheme(settings.themeColor);
+      // Try to get settings if they exist
+      try {
+        const { data: settingsData } = await supabase.rpc('get_user_settings', {
+          user_id: userId
+        });
+        
+        if (settingsData) {
+          const settings = { ...defaultUserSettings, ...settingsData };
+          setUserSettings(settings);
+          applyTheme(settings.themeColor);
+        }
+      } catch (error) {
+        // If the RPC doesn't exist or settings not found, use defaults
+        setUserSettings(defaultUserSettings);
+        applyTheme(defaultUserSettings.themeColor);
+        
+        // Update the profile with default settings
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ 
+            settings: defaultUserSettings 
+          })
+          .eq('id', userId);
+        
+        if (updateError) {
+          console.error('Error updating user settings:', updateError);
+        }
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
+      setUserSettings(defaultUserSettings);
     }
   };
 
@@ -127,19 +152,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         const { data: contactProfiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, username, avatar_url, status')
+          .select('id, username, avatar_url')
           .in('id', contactUserIds);
           
         if (profilesError) throw profilesError;
         
         // Combine the data
         const userContacts: Contact[] = contactProfiles.map(profile => {
-          const contact = contactLinks.find(c => c.contact_user_id === profile.id);
           return {
             id: profile.id,
             username: profile.username || 'Unknown User',
             avatar_url: profile.avatar_url,
-            status: profile.status as 'online' | 'away' | 'offline' || 'offline',
+            status: 'offline' as 'online' | 'away' | 'offline',
             contact_user_id: profile.id
           };
         });
@@ -324,19 +348,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({ settings: updatedSettings })
         .eq('id', user.id);
         
-      if (error) throw error;
+      if (error) {
+        // If update fails because settings column doesn't exist
+        console.error('Settings update failed, settings column might not exist');
+        
+        // Just apply the theme change in the UI but don't persist
+        if (settings.themeColor) {
+          applyTheme(settings.themeColor);
+        }
+        
+        return;
+      }
       
       setUserSettings(updatedSettings);
       
       if (settings.themeColor) {
         applyTheme(settings.themeColor);
       }
-      
-      return updatedSettings;
     } catch (error: any) {
       console.error('Error updating user settings:', error);
       toast.error(error.message || 'Failed to update settings');
-      throw error;
     }
   };
   
