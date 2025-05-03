@@ -100,10 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       if (data && data.settings) {
-        // If settings exist, use them
-        const loadedSettings = data.settings as UserSettings;
-        setUserSettings({ ...defaultUserSettings, ...loadedSettings });
-        applyTheme(loadedSettings.themeColor || defaultUserSettings.themeColor);
+        // If settings exist, use them - need to handle type conversion safely
+        const loadedSettings = data.settings as unknown;
+        setUserSettings({ 
+          ...defaultUserSettings, 
+          ...(loadedSettings as UserSettings) 
+        });
+        applyTheme((loadedSettings as UserSettings)?.themeColor || defaultUserSettings.themeColor);
       } else {
         // If settings don't exist, use defaults and update profile
         setUserSettings(defaultUserSettings);
@@ -114,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { error: updateError } = await supabase
             .from('profiles')
             .update({ 
-              settings: defaultUserSettings 
+              settings: defaultUserSettings as unknown as Json
             })
             .eq('id', userId);
             
@@ -200,9 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             {
               id: data.user.id,
               username,
-              settings: defaultUserSettings,
+              settings: defaultUserSettings as unknown as Json,
               status: 'online'
-            },
+            }
           ]);
 
         if (profileError) throw profileError;
@@ -253,18 +256,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if input is an email
       if (userIdOrEmail.includes('@')) {
         // Look up the user ID from email
-        const { data, error } = await supabase
-          .from('profiles')
+        const { data: userData, error: userError } = await supabase
+          .from('auth_users')
           .select('id')
           .eq('email', userIdOrEmail)
           .single();
           
-        if (error || !data) {
-          toast.error('User not found with that email');
-          return;
+        if (userError || !userData) {
+          // Try to find user in profiles that might have an email field
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', userIdOrEmail)
+            .single();
+            
+          if (profileError || !profileData) {
+            toast.error('User not found with that email');
+            return;
+          }
+          
+          contactUserId = profileData.id;
+        } else {
+          contactUserId = userData.id;
         }
-        
-        contactUserId = data.id;
       }
       
       // Check if trying to add self
@@ -344,7 +358,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const { error } = await supabase
         .from('profiles')
-        .update({ settings: updatedSettings })
+        .update({ settings: updatedSettings as unknown as Json })
         .eq('id', user.id);
         
       if (error) {
