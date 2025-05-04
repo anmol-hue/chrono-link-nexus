@@ -8,7 +8,7 @@ import VideoCall from "./VideoCall";
 import { Button } from "@/components/ui/button";
 import UserSettingsModal from "./UserSettingsModal";
 import { cn } from "@/lib/utils";
-import { MessageCircle, Video, Settings, LogOut } from "lucide-react";
+import { MessageCircle, Video, Settings, LogOut, LogIn } from "lucide-react";
 
 interface HomePageProps {
   initialView?: "chat" | "call" | "welcome";
@@ -101,6 +101,7 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
                       <Button 
                         className="px-5 py-2.5 rounded-lg bg-neon-purple/20 hover:bg-neon-purple/30 text-neon-purple border border-neon-purple/40 transition-colors"
                       >
+                        <LogIn className="mr-2 h-4 w-4" />
                         Login / Sign Up
                       </Button>
                     </Link>
