@@ -53,57 +53,53 @@ export const addContact = async (userId: string, userIdOrEmail: string): Promise
   
   try {
     let contactUserId = userIdOrEmail;
+    let contactUsername = '';
     
-    // Check if input is an email or username
-    if (userIdOrEmail.includes('@')) {
-      // Looking for user by email
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .eq('username', userIdOrEmail)
-        .maybeSingle();
-          
-      if (profileError || !profileData) {
-        // If not found by exact email, try looking for username containing the text
-        const { data: usernameMatch, error: usernameError } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .ilike('username', `%${userIdOrEmail}%`)
-          .maybeSingle();
-        
-        if (usernameError || !usernameMatch) {
-          toast.error('User not found with that email or username');
-          return false;
-        }
-        
-        contactUserId = usernameMatch.id;
-      } else {
-        contactUserId = profileData.id;
-      }
-    } else {
-      // Try to find by username if not an email
-      const { data: usernameMatch, error: usernameError } = await supabase
+    // First check by exact username match (most common case for system with usernames)
+    const { data: exactUsernameMatch, error: exactUsernameError } = await supabase
+      .from('profiles')
+      .select('id, username')
+      .eq('username', userIdOrEmail)
+      .maybeSingle();
+      
+    if (exactUsernameMatch) {
+      contactUserId = exactUsernameMatch.id;
+      contactUsername = exactUsernameMatch.username || 'User';
+    } 
+    // If not found by exact username, try by partial username match
+    else {
+      const { data: partialUsernameMatch, error: partialUsernameError } = await supabase
         .from('profiles')
         .select('id, username')
         .ilike('username', `%${userIdOrEmail}%`)
         .maybeSingle();
       
-      if (usernameError || !usernameMatch) {
-        // If not found by username, assume it's a user ID
-        const { data: idMatch, error: idError } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .eq('id', userIdOrEmail)
-          .maybeSingle();
-        
-        if (idError || !idMatch) {
-          toast.error('User not found');
+      if (partialUsernameMatch) {
+        contactUserId = partialUsernameMatch.id;
+        contactUsername = partialUsernameMatch.username || 'User';
+      } 
+      // If still not found, check if input is a valid UUID (user ID)
+      else {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(userIdOrEmail)) {
+          // Check if this ID exists
+          const { data: userById, error: userByIdError } = await supabase
+            .from('profiles')
+            .select('id, username')
+            .eq('id', userIdOrEmail)
+            .maybeSingle();
+          
+          if (userById) {
+            contactUserId = userById.id;
+            contactUsername = userById.username || 'User';
+          } else {
+            toast.error('User not found with that ID');
+            return false;
+          }
+        } else {
+          toast.error('User not found. Try entering a username');
           return false;
         }
-        
-        contactUserId = idMatch.id;
-      } else {
-        contactUserId = usernameMatch.id;
       }
     }
     
@@ -148,7 +144,7 @@ export const addContact = async (userId: string, userIdOrEmail: string): Promise
       
     if (error) throw error;
     
-    toast.success(`${contactExists.username || 'User'} added to contacts`);
+    toast.success(`${contactUsername} added to contacts`);
     return true;
   } catch (error: any) {
     console.error('Error adding contact:', error);
