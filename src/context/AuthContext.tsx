@@ -65,9 +65,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     
     setLoadingContacts(true);
-    const fetchedContacts = await contactsService.fetchContacts(user.id);
-    setContacts(fetchedContacts);
-    setLoadingContacts(false);
+    try {
+      const fetchedContacts = await contactsService.fetchContacts(user.id);
+      setContacts(fetchedContacts);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    } finally {
+      setLoadingContacts(false);
+    }
   };
 
   const signUp = async (email: string, password: string, username: string) => {
@@ -87,21 +92,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addContact = async (userIdOrEmail: string) => {
-    if (!user) return;
+    if (!user) return false;
     
     const success = await contactsService.addContact(user.id, userIdOrEmail);
     if (success) {
       fetchContactsData();
     }
+    return success;
   };
   
   const removeContact = async (contactId: string) => {
-    if (!user) return;
+    if (!user) return false;
     
     const success = await contactsService.removeContact(user.id, contactId);
     if (success) {
       fetchContactsData();
     }
+    return success;
   };
   
   const updateUserSettings = async (settings: Partial<UserSettings>) => {

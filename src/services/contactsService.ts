@@ -56,20 +56,55 @@ export const addContact = async (userId: string, userIdOrEmail: string): Promise
     
     // Check if input is an email or username
     if (userIdOrEmail.includes('@')) {
-      // We can't directly query auth.users through the Supabase client
-      // So we'll just try to find the user in profiles table
+      // Looking for user by email
       const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('username', userIdOrEmail)
+        .maybeSingle();
+          
+      if (profileError || !profileData) {
+        // If not found by exact email, try looking for username containing the text
+        const { data: usernameMatch, error: usernameError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .ilike('username', `%${userIdOrEmail}%`)
+          .maybeSingle();
+        
+        if (usernameError || !usernameMatch) {
+          toast.error('User not found with that email or username');
+          return false;
+        }
+        
+        contactUserId = usernameMatch.id;
+      } else {
+        contactUserId = profileData.id;
+      }
+    } else {
+      // Try to find by username if not an email
+      const { data: usernameMatch, error: usernameError } = await supabase
         .from('profiles')
         .select('id, username')
         .ilike('username', `%${userIdOrEmail}%`)
         .maybeSingle();
-          
-      if (profileError || !profileData) {
-        toast.error('User not found with that email or username');
-        return false;
-      }
       
-      contactUserId = profileData.id;
+      if (usernameError || !usernameMatch) {
+        // If not found by username, assume it's a user ID
+        const { data: idMatch, error: idError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .eq('id', userIdOrEmail)
+          .maybeSingle();
+        
+        if (idError || !idMatch) {
+          toast.error('User not found');
+          return false;
+        }
+        
+        contactUserId = idMatch.id;
+      } else {
+        contactUserId = usernameMatch.id;
+      }
     }
     
     // Check if trying to add self

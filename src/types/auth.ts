@@ -37,8 +37,8 @@ export interface AuthContextType {
   loading: boolean;
   contacts: Contact[];
   loadingContacts: boolean;
-  addContact: (userIdOrEmail: string) => Promise<void>;
-  removeContact: (contactId: string) => Promise<void>;
+  addContact: (userIdOrEmail: string) => Promise<boolean>;
+  removeContact: (contactId: string) => Promise<boolean>;
   userSettings: UserSettings;
   updateUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
   applyTheme: (color: string) => void;
