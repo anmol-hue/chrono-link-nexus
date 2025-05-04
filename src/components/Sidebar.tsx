@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
@@ -102,7 +101,12 @@ const Sidebar = () => {
     )}>
       <div className="p-4 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-neon-glow animate-pulse-soft"></div>
+          <div className="relative w-8 h-8">
+            <div className="absolute inset-0 rounded-lg bg-neon-glow animate-pulse-soft blur-md opacity-70"></div>
+            <div className="absolute inset-0 rounded-lg border border-white/30 flex items-center justify-center">
+              <span className="text-sm font-bold text-white">CL</span>
+            </div>
+          </div>
           {!isCollapsed && <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>}
         </div>
         <div className="flex items-center gap-2">

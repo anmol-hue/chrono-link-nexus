@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import Layout from "./Layout";
@@ -8,7 +8,7 @@ import VideoCall from "./VideoCall";
 import { Button } from "@/components/ui/button";
 import UserSettingsModal from "./UserSettingsModal";
 import { cn } from "@/lib/utils";
-import { MessageCircle, Video, Settings } from "lucide-react";
+import { MessageCircle, Video, Settings, LogOut } from "lucide-react";
 
 interface HomePageProps {
   initialView?: "chat" | "call" | "welcome";
@@ -46,13 +46,21 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
       {activeView === "welcome" && (
         <div className={cn("h-full flex items-center justify-center", getAnimationClass())}>
           <div className="text-center max-w-2xl p-8 rounded-xl cyber-panel">
-            <h1 className="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>
+            <div className="flex items-center justify-center mb-6">
+              <div className="relative w-16 h-16 mr-3">
+                <div className="absolute inset-0 rounded-full bg-neon-glow animate-pulse-soft blur-md opacity-70"></div>
+                <div className="absolute inset-0 rounded-full border-2 border-white/30 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-white">CL</span>
+                </div>
+              </div>
+              <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-neon-glow animate-pulse-soft">ChronoLink</h1>
+            </div>
             <p className="text-white/80 mb-8">Welcome to the next generation of communication</p>
             
             {user ? (
               <div className="mb-6">
                 <p className="text-neon-green mb-4">Hello, {user.user_metadata.username || 'User'}!</p>
-                <div className="flex justify-center gap-3 mb-6">
+                <div className="flex flex-wrap justify-center gap-3 mb-6">
                   <Button 
                     onClick={() => setActiveView("chat")}
                     className={cn("px-5 py-2.5 rounded-lg border", getButtonClass("chat"))}
@@ -78,6 +86,7 @@ const HomePage: React.FC<HomePageProps> = ({ initialView = "welcome" }) => {
                     onClick={() => signOut()}
                     className="px-5 py-2.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40"
                   >
+                    <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </Button>
                 </div>
